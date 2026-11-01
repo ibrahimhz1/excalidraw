@@ -1222,6 +1222,16 @@ const ExcalidrawWrapper = () => {
       );
     }
 
+    if (
+      cloudUserRef.current &&
+      currentCloudDiagramRef.current &&
+      !elements.some((element) => !element.isDeleted)
+    ) {
+      clearAutosaveTimer();
+      autosavePendingChangeRef.current = false;
+      updateCurrentCloudDiagram(null);
+    }
+
     scheduleCloudAutosave();
   };
 
