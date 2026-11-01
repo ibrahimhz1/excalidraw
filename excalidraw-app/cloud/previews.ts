@@ -18,6 +18,7 @@ const pending = new Map<string, Promise<string>>();
 const waiters: Array<() => void> = [];
 
 let active = 0;
+let epoch = 0;
 
 function cacheKey(diagram: Pick<CloudDiagram, "id" | "updatedAt">): string {
   return `${diagram.id}:${diagram.updatedAt}`;
@@ -91,6 +92,16 @@ async function buildPreview(
   }
 }
 
+/**
+ * Returns a `blob:` URL for a rendered preview of the diagram.
+ *
+ * The returned URL is volatile. It may be revoked when the cache evicts the
+ * entry (more than `maxCached` previews) or when `invalidateScenePreview()` /
+ * `clearScenePreviewCache()` is called. Consumers must not assume the URL stays
+ * valid for the lifetime of the component: if an `<img>` fails to load, call
+ * `invalidateScenePreview(id)` and request the preview again instead of
+ * retrying the same URL.
+ */
 export function getScenePreview(
   diagram: Pick<CloudDiagram, "id" | "updatedAt">,
 ): Promise<string> {
@@ -107,13 +118,22 @@ export function getScenePreview(
     return inFlight;
   }
 
+  const buildEpoch = epoch;
+
   const task = buildPreview(diagram)
     .then((url) => {
+      if (buildEpoch !== epoch) {
+        URL.revokeObjectURL(url);
+        return url;
+      }
+
       remember(key, url);
       return url;
     })
     .finally(() => {
-      pending.delete(key);
+      if (pending.get(key) === task) {
+        pending.delete(key);
+      }
     });
 
   pending.set(key, task);
@@ -121,6 +141,8 @@ export function getScenePreview(
 }
 
 export function invalidateScenePreview(id: string): void {
+  epoch += 1;
+
   for (const [key, url] of cache) {
     if (key.startsWith(`${id}:`)) {
       cache.delete(key);
@@ -130,6 +152,8 @@ export function invalidateScenePreview(id: string): void {
 }
 
 export function clearScenePreviewCache(): void {
+  epoch += 1;
+
   for (const url of cache.values()) {
     URL.revokeObjectURL(url);
   }
