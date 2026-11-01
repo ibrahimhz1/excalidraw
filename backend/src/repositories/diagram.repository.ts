@@ -85,7 +85,6 @@ export async function updateDiagram(
   const rows = await sql`
     UPDATE diagrams
     SET
-      name = ${input.name},
       description = ${input.description},
       folder_id = ${input.folderId},
       google_drive_file_id = ${googleDriveFileId},
