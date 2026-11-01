@@ -1,0 +1,14 @@
+[build]
+  command = "yarn build"
+  publish = "excalidraw-app/build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  YARN_VERSION = "1.22.22"
+
+[[headers]]
+  for = "/*"
+
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
