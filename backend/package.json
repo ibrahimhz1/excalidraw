@@ -1,0 +1,25 @@
+{
+  "name": "draw-diagrams-backend",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "yarn@1.22.22",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env.local src/dev-server.ts",
+    "dev:vercel": "vercel dev",
+    "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "@vercel/node": "5.1.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vercel": "39.2.2"
+  }
+}
