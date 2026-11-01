@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "packageManager": "yarn@1.22.22",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "22.x"
   },
   "scripts": {
+    "build": "tsc --noEmit",
     "dev": "tsx watch --env-file-if-exists=.env.local src/dev-server.ts",
     "dev:vercel": "vercel dev",
     "db:migrate": "tsx --env-file-if-exists=.env.local scripts/migrate.ts",
