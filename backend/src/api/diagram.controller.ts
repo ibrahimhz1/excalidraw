@@ -15,6 +15,24 @@ function parseId(id: string): string {
   return id;
 }
 
+function parseName(body: unknown): string {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new HttpError(400, "Request body must be a JSON object");
+  }
+
+  const { name } = body as Record<string, unknown>;
+
+  if (typeof name !== "string" || name.trim().length === 0) {
+    throw new HttpError(400, "name is required");
+  }
+
+  if (name.trim().length > 200) {
+    throw new HttpError(400, "name must be at most 200 characters");
+  }
+
+  return name.trim();
+}
+
 function parseInput(body: unknown): DiagramInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     throw new HttpError(400, "Request body must be a JSON object");
@@ -114,6 +132,19 @@ export async function updateDiagram(
     ownerId,
     parseId(id),
     parseWriteInput(body),
+  );
+  return { status: 200, body: diagram };
+}
+
+export async function renameDiagram(
+  ownerId: string,
+  id: string,
+  body: unknown,
+) {
+  const diagram = await diagramService.renameDiagram(
+    ownerId,
+    parseId(id),
+    parseName(body),
   );
   return { status: 200, body: diagram };
 }

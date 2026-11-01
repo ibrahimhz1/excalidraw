@@ -127,6 +127,39 @@ export async function updateDiagram(
   }
 }
 
+export async function renameDiagram(
+  ownerId: string,
+  id: string,
+  name: string,
+): Promise<Diagram> {
+  const existing = await getDiagram(ownerId, id);
+  const driveFileId = existing.googleDriveFileId;
+
+  if (driveFileId) {
+    await driveService.renameFile(ownerId, driveFileId, name);
+  }
+
+  try {
+    const diagram = await repository.renameDiagram(ownerId, id, name);
+
+    if (!diagram) {
+      throw new HttpError(404, "Diagram not found");
+    }
+
+    return diagram;
+  } catch (error) {
+    if (driveFileId) {
+      try {
+        await driveService.renameFile(ownerId, driveFileId, existing.name);
+      } catch (cleanupError) {
+        console.error("Failed to restore Drive file name:", cleanupError);
+      }
+    }
+
+    throw error;
+  }
+}
+
 export async function deleteDiagram(
   ownerId: string,
   id: string,

@@ -105,6 +105,29 @@ export async function updateDiagram(
   return (rows[0] as Diagram | undefined) ?? null;
 }
 
+export async function renameDiagram(
+  ownerId: string,
+  id: string,
+  name: string,
+): Promise<Diagram | null> {
+  const rows = await sql`
+    UPDATE diagrams
+    SET name = ${name}, updated_at = now()
+    WHERE id = ${id} AND owner_id = ${ownerId}
+    RETURNING
+      id,
+      name,
+      description,
+      owner_id AS "ownerId",
+      folder_id AS "folderId",
+      google_drive_file_id AS "googleDriveFileId",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+  `;
+
+  return (rows[0] as Diagram | undefined) ?? null;
+}
+
 export async function deleteDiagram(
   ownerId: string,
   id: string,

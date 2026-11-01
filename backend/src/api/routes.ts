@@ -70,6 +70,13 @@ export const routes: Route[] = [
       diagramController.updateDiagram(ctx.user!.id, params[0]!, body),
   },
   {
+    method: "PATCH",
+    pattern: /^\/api\/diagrams\/([^/]+)$/,
+    requiresAuth: true,
+    handler: (params, body, ctx) =>
+      diagramController.renameDiagram(ctx.user!.id, params[0]!, body),
+  },
+  {
     method: "DELETE",
     pattern: /^\/api\/diagrams\/([^/]+)$/,
     requiresAuth: true,

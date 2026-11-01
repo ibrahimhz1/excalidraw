@@ -201,6 +201,22 @@ export async function getFile(userId: string, fileId: string): Promise<string> {
   return response.text();
 }
 
+export async function renameFile(
+  userId: string,
+  fileId: string,
+  name: string,
+): Promise<void> {
+  await driveFetch(
+    userId,
+    `${driveFilesEndpoint}/${requireDriveFileId(fileId)}?fields=id`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: sanitizeFileName(name) }),
+    },
+  );
+}
+
 export async function updateFile(
   userId: string,
   fileId: string,
