@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleRequest } from "../src/app";
-import { parseCookies } from "../src/lib/cookies";
+import { handleRequest } from "./app";
+import { parseCookies } from "./lib/cookies";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const url = new URL(req.url ?? "/", "http://localhost");
