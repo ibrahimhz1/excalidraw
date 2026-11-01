@@ -75,6 +75,17 @@ export async function getGoogleCredentials(userId: string): Promise<{
   );
 }
 
+export async function updateRefreshToken(
+  userId: string,
+  refreshTokenEncrypted: string,
+): Promise<void> {
+  await sql`
+    UPDATE users
+    SET refresh_token_encrypted = ${refreshTokenEncrypted}, updated_at = now()
+    WHERE id = ${userId}
+  `;
+}
+
 export async function updateDriveRootFolder(
   userId: string,
   folderId: string,
