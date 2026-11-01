@@ -113,7 +113,14 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
     setRenamingId(null);
     setDeleteTarget(null);
     setError(null);
-  }, [open]);
+
+    if (user) {
+      setStatus("loading");
+    } else {
+      setDiagrams([]);
+      setStatus("ready");
+    }
+  }, [open, user]);
 
   useEffect(() => {
     if (!open) {
@@ -259,6 +266,7 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
       props.onDeleted(deleteTarget.id);
       setDeleteTarget(null);
     } catch (deleteError) {
+      setDeleteTarget(null);
       setError(errorMessage(deleteError));
     } finally {
       setBusy(false);
@@ -348,7 +356,7 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
           />
         ) : null}
 
-        <div className="cloud-library__body">
+        <div className="cloud-library__body" aria-live="polite">
           {error ? (
             <div className="cloud-library__banner" role="alert">
               <span>{error}</span>
