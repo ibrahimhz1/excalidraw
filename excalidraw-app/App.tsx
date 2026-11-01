@@ -412,16 +412,11 @@ function readStoredCloudDiagram(): StoredCloudDiagram | null {
 }
 
 function uniqueDiagramName(base: string): string {
-  const trimmed = base.trim() || "Untitled";
-
-  if (!/^untitled\b/i.test(trimmed)) {
-    return trimmed;
-  }
-
+  const trimmed = (base.trim() || "Untitled").slice(0, 160);
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
   const suffix = Math.random().toString(36).slice(2, 6);
 
-  return `Untitled ${stamp}-${suffix}`;
+  return `${trimmed} ${stamp}-${suffix}`;
 }
 
 function storeCloudDiagram(diagram: StoredCloudDiagram | null) {
@@ -1265,6 +1260,7 @@ const ExcalidrawWrapper = () => {
       clearAutosaveTimer();
       autosavePendingChangeRef.current = false;
       updateCurrentCloudDiagram(null);
+      excalidrawAPI?.updateScene({ appState: { name: null } });
     }
 
     scheduleCloudAutosave();
