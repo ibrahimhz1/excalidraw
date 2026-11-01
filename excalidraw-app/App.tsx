@@ -108,10 +108,12 @@ import {
   createDiagram,
   getCurrentUser,
   getDiagram as getCloudDiagram,
+  listDiagrams,
   loginUrl,
   logout as logoutCloud,
   updateDiagram,
   type AuthUser,
+  type CloudDiagram,
 } from "./cloud/api";
 import { applyScene, captureScene } from "./cloud/scene";
 import {
@@ -384,6 +386,46 @@ const initializeScene = async (opts: {
   return { scene: null, isExternalScene: false };
 };
 
+const cloudDiagramStorageKey = "draw-diagrams.current-diagram";
+
+interface StoredCloudDiagram {
+  id: string;
+  name: string;
+}
+
+function readStoredCloudDiagram(): StoredCloudDiagram | null {
+  try {
+    const stored = window.localStorage.getItem(cloudDiagramStorageKey);
+
+    if (!stored) {
+      return null;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<StoredCloudDiagram>;
+
+    return typeof parsed.id === "string" && typeof parsed.name === "string"
+      ? { id: parsed.id, name: parsed.name }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeCloudDiagram(diagram: StoredCloudDiagram | null) {
+  try {
+    if (diagram) {
+      window.localStorage.setItem(
+        cloudDiagramStorageKey,
+        JSON.stringify(diagram),
+      );
+    } else {
+      window.localStorage.removeItem(cloudDiagramStorageKey);
+    }
+  } catch {
+    // storage unavailable; current diagram still kept in memory
+  }
+}
+
 const ExcalidrawWrapper = () => {
   const excalidrawAPI = useExcalidrawAPI();
 
@@ -466,10 +508,20 @@ const ExcalidrawWrapper = () => {
 
   const [cloudUser, setCloudUser] = useState<AuthUser | null>(null);
   const [cloudDialogOpen, setCloudDialogOpen] = useState(false);
-  const [currentCloudDiagram, setCurrentCloudDiagram] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  const [currentCloudDiagram, setCurrentCloudDiagram] =
+    useState<StoredCloudDiagram | null>(() => readStoredCloudDiagram());
+  const [autoOpenOnLogin, setAutoOpenOnLogin] = useState(false);
+
+  const cloudUserRef = useRef<AuthUser | null>(null);
+  const currentCloudDiagramRef = useRef<StoredCloudDiagram | null>(
+    currentCloudDiagram,
+  );
+  const autosaveReadyRef = useRef(false);
+  const autosaveTimerRef = useRef<number | undefined>(undefined);
+  const autosaveInFlightRef = useRef(false);
+  const autosavePendingRef = useRef(false);
+  const autosavePendingChangeRef = useRef(false);
+  const autosaveRef = useRef<() => Promise<void>>(async () => {});
 
   const showCloudToast = useCallback(
     (message: string) => {
@@ -498,6 +550,26 @@ const ExcalidrawWrapper = () => {
     },
     [showCloudToast],
   );
+
+  useEffect(() => {
+    cloudUserRef.current = cloudUser;
+  }, [cloudUser]);
+
+  const updateCurrentCloudDiagram = useCallback(
+    (diagram: StoredCloudDiagram | null) => {
+      currentCloudDiagramRef.current = diagram;
+      setCurrentCloudDiagram(diagram);
+      storeCloudDiagram(diagram);
+    },
+    [],
+  );
+
+  const clearAutosaveTimer = useCallback(() => {
+    if (autosaveTimerRef.current !== undefined) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = undefined;
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -530,6 +602,7 @@ const ExcalidrawWrapper = () => {
     if (auth === "error") {
       showCloudToast("Google sign-in failed. Try again.");
     } else if (auth === "success") {
+      setAutoOpenOnLogin(true);
       showCloudToast("Signed in with Google");
     }
 
@@ -556,58 +629,162 @@ const ExcalidrawWrapper = () => {
       await handleCloudError(error);
     }
 
+    clearAutosaveTimer();
+    autosaveReadyRef.current = false;
+    autosavePendingChangeRef.current = false;
+    setAutoOpenOnLogin(false);
     setCloudUser(null);
-    setCurrentCloudDiagram(null);
+    cloudUserRef.current = null;
+    updateCurrentCloudDiagram(null);
     setCloudDialogOpen(false);
-  }, [handleCloudError, showCloudToast]);
+  }, [
+    clearAutosaveTimer,
+    handleCloudError,
+    showCloudToast,
+    updateCurrentCloudDiagram,
+  ]);
 
-  const saveCloudDiagram = useCallback(
-    async (asNew = false, nameOverride?: string) => {
-      if (!cloudUser) {
-        window.location.assign(loginUrl);
-        return;
+  const persistCloudDiagram = useCallback(
+    async (
+      options: {
+        asNew?: boolean;
+        nameOverride?: string;
+        silent?: boolean;
+      } = {},
+    ): Promise<CloudDiagram | null> => {
+      const user = cloudUserRef.current;
+      const current = currentCloudDiagramRef.current;
+
+      if (!user) {
+        if (!options.silent) {
+          window.location.assign(loginUrl);
+        }
+        return null;
       }
 
       if (!excalidrawAPI) {
-        return;
+        return null;
       }
 
       try {
         const stateName = excalidrawAPI.getAppState().name;
         const name =
           (
-            nameOverride ??
+            options.nameOverride ??
+            current?.name ??
             stateName ??
-            currentCloudDiagram?.name ??
             "Untitled"
           ).trim() || "Untitled";
         const content = captureScene(excalidrawAPI);
-        const wasNew = asNew || !currentCloudDiagram;
-        const diagram =
-          currentCloudDiagram && !asNew
-            ? await updateDiagram(currentCloudDiagram.id, { name, content })
-            : await createDiagram({ name, content });
+        const asNew = options.asNew ?? false;
+        let diagram: CloudDiagram;
 
-        setCurrentCloudDiagram({ id: diagram.id, name: diagram.name });
+        if (current && !asNew) {
+          try {
+            diagram = await updateDiagram(current.id, { name, content });
+          } catch (error) {
+            if (error instanceof ApiError && error.status === 404) {
+              updateCurrentCloudDiagram(null);
+
+              if (options.silent) {
+                throw error;
+              }
+
+              diagram = await createDiagram({ name, content });
+            } else {
+              throw error;
+            }
+          }
+        } else {
+          diagram = await createDiagram({ name, content });
+        }
+
+        updateCurrentCloudDiagram({ id: diagram.id, name: diagram.name });
         excalidrawAPI.updateScene({ appState: { name: diagram.name } });
-        showCloudToast(wasNew ? "Saved as new diagram" : "Saved to Drive");
+
+        if (!options.silent) {
+          showCloudToast(
+            asNew || !current ? "Saved as new diagram" : "Saved to Drive",
+          );
+        }
+
+        return diagram;
       } catch (error) {
         await handleCloudError(error);
         throw error;
       }
     },
     [
-      cloudUser,
-      currentCloudDiagram,
       excalidrawAPI,
       handleCloudError,
       showCloudToast,
+      updateCurrentCloudDiagram,
     ],
+  );
+
+  const autoSaveCloudDiagram = useCallback(async () => {
+    if (!autosaveReadyRef.current || !cloudUserRef.current || !excalidrawAPI) {
+      return;
+    }
+
+    if (autosaveInFlightRef.current) {
+      autosavePendingRef.current = true;
+      return;
+    }
+
+    if (
+      !excalidrawAPI.getSceneElements().some((element) => !element.isDeleted)
+    ) {
+      return;
+    }
+
+    autosaveInFlightRef.current = true;
+
+    try {
+      await persistCloudDiagram({ silent: true });
+    } catch {
+      // error already surfaced by handleCloudError
+    } finally {
+      autosaveInFlightRef.current = false;
+
+      if (autosavePendingRef.current) {
+        autosavePendingRef.current = false;
+        window.setTimeout(() => {
+          void autosaveRef.current();
+        }, 500);
+      }
+    }
+  }, [excalidrawAPI, persistCloudDiagram]);
+
+  autosaveRef.current = autoSaveCloudDiagram;
+
+  const scheduleCloudAutosave = useCallback(() => {
+    if (!cloudUserRef.current) {
+      return;
+    }
+
+    if (!autosaveReadyRef.current) {
+      autosavePendingChangeRef.current = true;
+      return;
+    }
+
+    clearAutosaveTimer();
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = undefined;
+      void autosaveRef.current();
+    }, 1500);
+  }, [clearAutosaveTimer]);
+
+  const saveCloudDiagram = useCallback(
+    async (asNew = false, nameOverride?: string) => {
+      await persistCloudDiagram({ asNew, nameOverride });
+    },
+    [persistCloudDiagram],
   );
 
   const openCloudDiagram = useCallback(
     async (id: string) => {
-      if (!cloudUser) {
+      if (!cloudUserRef.current) {
         window.location.assign(loginUrl);
         return;
       }
@@ -620,24 +797,32 @@ const ExcalidrawWrapper = () => {
         const { diagram, content } = await getCloudDiagram(id);
         applyScene(excalidrawAPI, content);
         excalidrawAPI.updateScene({ appState: { name: diagram.name } });
-        setCurrentCloudDiagram({ id: diagram.id, name: diagram.name });
+        updateCurrentCloudDiagram({ id: diagram.id, name: diagram.name });
         showCloudToast(`Opened "${diagram.name}"`);
       } catch (error) {
         await handleCloudError(error);
         throw error;
       }
     },
-    [cloudUser, excalidrawAPI, handleCloudError, showCloudToast],
+    [
+      excalidrawAPI,
+      handleCloudError,
+      showCloudToast,
+      updateCurrentCloudDiagram,
+    ],
   );
 
   const handleCloudDiagramDeleted = useCallback(
     (id: string) => {
-      setCurrentCloudDiagram((current) =>
-        current?.id === id ? null : current,
-      );
+      if (currentCloudDiagramRef.current?.id === id) {
+        updateCurrentCloudDiagram(null);
+      }
+
+      clearAutosaveTimer();
+      autosaveReadyRef.current = true;
       showCloudToast("Diagram deleted");
     },
-    [showCloudToast],
+    [clearAutosaveTimer, showCloudToast, updateCurrentCloudDiagram],
   );
 
   const handleCloudNew = useCallback(() => {
@@ -649,14 +834,82 @@ const ExcalidrawWrapper = () => {
       return;
     }
 
+    clearAutosaveTimer();
     excalidrawAPI.updateScene({
       elements: [],
       appState: { name: null },
       captureUpdate: CaptureUpdateAction.NEVER,
     });
-    setCurrentCloudDiagram(null);
+    updateCurrentCloudDiagram(null);
+    autosaveReadyRef.current = true;
     showCloudToast("New diagram");
-  }, [excalidrawAPI, showCloudToast]);
+  }, [
+    clearAutosaveTimer,
+    excalidrawAPI,
+    showCloudToast,
+    updateCurrentCloudDiagram,
+  ]);
+
+  useEffect(() => {
+    if (!autoOpenOnLogin || !cloudUser || !excalidrawAPI) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const diagrams = await listDiagrams();
+
+        if (!cancelled && diagrams.length > 0) {
+          await openCloudDiagram(diagrams[0].id);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          await handleCloudError(error);
+        }
+      } finally {
+        if (!cancelled) {
+          setAutoOpenOnLogin(false);
+          autosavePendingChangeRef.current = false;
+          autosaveReadyRef.current = true;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    autoOpenOnLogin,
+    cloudUser,
+    excalidrawAPI,
+    handleCloudError,
+    openCloudDiagram,
+  ]);
+
+  useEffect(() => {
+    if (!cloudUser) {
+      autosaveReadyRef.current = false;
+      clearAutosaveTimer();
+      return;
+    }
+
+    if (autoOpenOnLogin) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      autosaveReadyRef.current = true;
+
+      if (autosavePendingChangeRef.current) {
+        autosavePendingChangeRef.current = false;
+        void autosaveRef.current();
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [autoOpenOnLogin, clearAutosaveTimer, cloudUser]);
 
   useEffect(() => {
     if (isDevEnv()) {
@@ -968,6 +1221,8 @@ const ExcalidrawWrapper = () => {
         window.devicePixelRatio,
       );
     }
+
+    scheduleCloudAutosave();
   };
 
   const [latestShareableLink, setLatestShareableLink] = useState<string | null>(
