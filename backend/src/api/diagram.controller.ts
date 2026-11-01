@@ -2,6 +2,8 @@ import { HttpError } from "../lib/http-error";
 import * as diagramService from "../services/diagram.service";
 import type { DiagramInput } from "../types/diagram";
 
+const maxContentBytes = 4_000_000;
+
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -49,20 +51,56 @@ function parseInput(body: unknown): DiagramInput {
   };
 }
 
+function parseWriteInput(body: unknown): diagramService.DiagramWriteInput {
+  const metadata = parseInput(body);
+  const content = (body as Record<string, unknown>).content;
+
+  if (!content || typeof content !== "object" || Array.isArray(content)) {
+    throw new HttpError(400, "content must be an Excalidraw scene object");
+  }
+
+  const scene = content as Record<string, unknown>;
+
+  if (!Array.isArray(scene.elements)) {
+    throw new HttpError(400, "content.elements must be an array");
+  }
+
+  if (scene.type !== undefined && scene.type !== "excalidraw") {
+    throw new HttpError(400, "content.type must be excalidraw");
+  }
+
+  let contentJson: string;
+
+  try {
+    contentJson = JSON.stringify(content);
+  } catch {
+    throw new HttpError(400, "content must be serializable JSON");
+  }
+
+  if (Buffer.byteLength(contentJson, "utf8") > maxContentBytes) {
+    throw new HttpError(400, "content must be at most 4 MB");
+  }
+
+  return { ...metadata, contentJson };
+}
+
 export async function listDiagrams(ownerId: string) {
   const diagrams = await diagramService.listDiagrams(ownerId);
   return { status: 200, body: diagrams };
 }
 
 export async function getDiagram(ownerId: string, id: string) {
-  const diagram = await diagramService.getDiagram(ownerId, parseId(id));
-  return { status: 200, body: diagram };
+  const result = await diagramService.getDiagramContent(
+    ownerId,
+    parseId(id),
+  );
+  return { status: 200, body: result };
 }
 
 export async function createDiagram(ownerId: string, body: unknown) {
   const diagram = await diagramService.createDiagram(
     ownerId,
-    parseInput(body),
+    parseWriteInput(body),
   );
   return { status: 201, body: diagram };
 }
@@ -75,7 +113,7 @@ export async function updateDiagram(
   const diagram = await diagramService.updateDiagram(
     ownerId,
     parseId(id),
-    parseInput(body),
+    parseWriteInput(body),
   );
   return { status: 200, body: diagram };
 }

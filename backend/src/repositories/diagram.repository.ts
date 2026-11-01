@@ -45,10 +45,23 @@ export async function getDiagram(
 export async function createDiagram(
   ownerId: string,
   input: DiagramInput,
+  googleDriveFileId: string,
 ): Promise<Diagram> {
   const rows = await sql`
-    INSERT INTO diagrams (name, description, folder_id, owner_id)
-    VALUES (${input.name}, ${input.description}, ${input.folderId}, ${ownerId})
+    INSERT INTO diagrams (
+      name,
+      description,
+      folder_id,
+      owner_id,
+      google_drive_file_id
+    )
+    VALUES (
+      ${input.name},
+      ${input.description},
+      ${input.folderId},
+      ${ownerId},
+      ${googleDriveFileId}
+    )
     RETURNING
       id,
       name,
@@ -67,6 +80,7 @@ export async function updateDiagram(
   ownerId: string,
   id: string,
   input: DiagramInput,
+  googleDriveFileId: string,
 ): Promise<Diagram | null> {
   const rows = await sql`
     UPDATE diagrams
@@ -74,6 +88,7 @@ export async function updateDiagram(
       name = ${input.name},
       description = ${input.description},
       folder_id = ${input.folderId},
+      google_drive_file_id = ${googleDriveFileId},
       updated_at = now()
     WHERE id = ${id} AND owner_id = ${ownerId}
     RETURNING

@@ -7,7 +7,7 @@ import { handleRequest } from "./app";
 import { parseCookies } from "./lib/cookies";
 
 const port = Number(process.env.PORT ?? 3000);
-const maxBodyBytes = 1_000_000;
+const maxBodyBytes = 4_500_000;
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
