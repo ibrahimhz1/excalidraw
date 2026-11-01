@@ -842,6 +842,24 @@ const ExcalidrawWrapper = () => {
     [clearAutosaveTimer, showCloudToast, updateCurrentCloudDiagram],
   );
 
+  const handleCloudDiagramRenamed = useCallback(
+    (diagram: CloudDiagram) => {
+      if (currentCloudDiagramRef.current?.id === diagram.id) {
+        clearAutosaveTimer();
+        updateCurrentCloudDiagram({ id: diagram.id, name: diagram.name });
+        excalidrawAPI?.updateScene({ appState: { name: diagram.name } });
+      }
+
+      showCloudToast("Diagram renamed");
+    },
+    [
+      clearAutosaveTimer,
+      excalidrawAPI,
+      showCloudToast,
+      updateCurrentCloudDiagram,
+    ],
+  );
+
   const handleCloudNew = useCallback(() => {
     if (!excalidrawAPI) {
       return;
@@ -1814,6 +1832,7 @@ const ExcalidrawWrapper = () => {
         onLogin={handleCloudLogin}
         onOpen={openCloudDiagram}
         onDeleted={handleCloudDiagramDeleted}
+        onRenamed={handleCloudDiagramRenamed}
         onSaveAs={(name) => saveCloudDiagram(true, name)}
       />
     </div>

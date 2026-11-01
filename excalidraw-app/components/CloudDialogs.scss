@@ -135,6 +135,30 @@
   }
 }
 
+.cloud-dialog__rename {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+
+  input {
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--input-border-color, #ced4da);
+    border-radius: 6px;
+    background: var(--input-bg-color, transparent);
+    color: inherit;
+  }
+
+  button {
+    padding: 6px 10px;
+    border: 1px solid var(--input-border-color, #ced4da);
+    border-radius: 6px;
+    background: var(--island-bg-color);
+    color: inherit;
+    cursor: pointer;
+  }
+}
+
 .cloud-dialog__item-actions {
   display: flex;
   flex-shrink: 0;

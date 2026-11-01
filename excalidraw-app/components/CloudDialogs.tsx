@@ -5,6 +5,7 @@ import {
   ApiError,
   deleteDiagram,
   listDiagrams,
+  renameDiagram,
   type AuthUser,
   type CloudDiagram,
 } from "../cloud/api";
@@ -20,6 +21,7 @@ interface CloudDialogsProps {
   onLogin: () => void;
   onOpen: (id: string) => Promise<void>;
   onDeleted: (id: string) => void;
+  onRenamed: (diagram: CloudDiagram) => void;
   onSaveAs: (name: string) => Promise<void>;
 }
 
@@ -38,6 +40,8 @@ export const CloudDialogs = (props: CloudDialogsProps) => {
   const [name, setName] = useState(defaultName);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const loadDiagrams = useCallback(async () => {
     const items = await listDiagrams();
@@ -122,6 +126,45 @@ export const CloudDialogs = (props: CloudDialogsProps) => {
       props.onClose();
     } catch (openError) {
       setError(errorMessage(openError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startRename = (diagram: CloudDiagram) => {
+    setRenamingId(diagram.id);
+    setRenameValue(diagram.name);
+    setError(null);
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameValue("");
+  };
+
+  const handleRename = async (
+    event: React.FormEvent,
+    diagram: CloudDiagram,
+  ) => {
+    event.preventDefault();
+    const trimmedName = renameValue.trim();
+
+    if (!trimmedName) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    try {
+      const updated = await renameDiagram(diagram.id, trimmedName);
+      setDiagrams((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      props.onRenamed(updated);
+      cancelRename();
+    } catch (renameError) {
+      setError(errorMessage(renameError));
     } finally {
       setBusy(false);
     }
@@ -224,6 +267,7 @@ export const CloudDialogs = (props: CloudDialogsProps) => {
                 {diagrams.map((diagram) => (
                   <li
                     key={diagram.id}
+                    data-diagram-id={diagram.id}
                     className={
                       diagram.id === props.currentDiagramId
                         ? "cloud-dialog__item is-current"
@@ -231,28 +275,70 @@ export const CloudDialogs = (props: CloudDialogsProps) => {
                     }
                   >
                     <div className="cloud-dialog__item-copy">
-                      <strong>{diagram.name}</strong>
-                      <span>
-                        Updated {new Date(diagram.updatedAt).toLocaleString()}
-                      </span>
+                      {renamingId === diagram.id ? (
+                        <form
+                          className="cloud-dialog__rename"
+                          onSubmit={(event) => handleRename(event, diagram)}
+                        >
+                          <input
+                            value={renameValue}
+                            onChange={(event) =>
+                              setRenameValue(event.target.value)
+                            }
+                            maxLength={200}
+                            autoFocus
+                            disabled={busy}
+                          />
+                          <button
+                            type="submit"
+                            disabled={busy || !renameValue.trim()}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={cancelRename}
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <strong>{diagram.name}</strong>
+                          <span>
+                            Updated{" "}
+                            {new Date(diagram.updatedAt).toLocaleString()}
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <div className="cloud-dialog__item-actions">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => handleOpen(diagram.id)}
-                      >
-                        Open
-                      </button>
-                      <button
-                        type="button"
-                        className="cloud-dialog__danger"
-                        disabled={busy}
-                        onClick={() => handleDelete(diagram)}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    {renamingId !== diagram.id && (
+                      <div className="cloud-dialog__item-actions">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => startRename(diagram)}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => handleOpen(diagram.id)}
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          className="cloud-dialog__danger"
+                          disabled={busy}
+                          onClick={() => handleDelete(diagram)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

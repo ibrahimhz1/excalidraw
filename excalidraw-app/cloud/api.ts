@@ -121,6 +121,13 @@ export function updateDiagram(
   });
 }
 
+export function renameDiagram(id: string, name: string): Promise<CloudDiagram> {
+  return request<CloudDiagram>(`/api/diagrams/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function deleteDiagram(id: string): Promise<void> {
   return request<void>(`/api/diagrams/${id}`, { method: "DELETE" });
 }
