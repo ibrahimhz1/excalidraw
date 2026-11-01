@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   DotsIcon,
@@ -30,6 +30,74 @@ export const DiagramCard = (props: DiagramItemProps) => {
   const { diagram, isCurrent, isRenaming, busy } = props;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const getMenuItems = useCallback(() => {
+    const menu = menuRef.current?.querySelector('[role="menu"]');
+
+    return menu
+      ? Array.from(
+          menu.querySelectorAll<HTMLButtonElement>(
+            '[role="menuitem"]:not([disabled])',
+          ),
+        )
+      : [];
+  }, []);
+
+  const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = getMenuItems();
+
+    if (items.length === 0) {
+      return;
+    }
+
+    const index = items.indexOf(event.target as HTMLButtonElement);
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        items[index < 0 ? 0 : (index + 1) % items.length].focus();
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        items[
+          index < 0
+            ? items.length - 1
+            : (index - 1 + items.length) % items.length
+        ].focus();
+        break;
+      case "Home":
+        event.preventDefault();
+        items[0].focus();
+        break;
+      case "End":
+        event.preventDefault();
+        items[items.length - 1].focus();
+        break;
+      case "Escape":
+        event.preventDefault();
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+        break;
+      case "Tab":
+        setMenuOpen(false);
+        break;
+    }
+  };
+
+  useEffect(() => {
+    if (busy || isRenaming) {
+      setMenuOpen(false);
+    }
+  }, [busy, isRenaming]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    getMenuItems()[0]?.focus();
+  }, [menuOpen, getMenuItems]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -71,15 +139,13 @@ export const DiagramCard = (props: DiagramItemProps) => {
         <button
           type="button"
           className="cloud-card__open"
-          aria-label={`Open ${diagram.name}`}
+          aria-label={`Preview ${diagram.name}`}
           disabled={busy || isRenaming}
           onClick={props.onOpen}
         >
           <ScenePreview diagram={diagram} />
         </button>
-        {isCurrent ? (
-          <span className="cloud-card__badge">Current</span>
-        ) : null}
+        {isCurrent ? <span className="cloud-card__badge">Current</span> : null}
       </div>
 
       <div className="cloud-card__body">
@@ -107,6 +173,7 @@ export const DiagramCard = (props: DiagramItemProps) => {
         {!isRenaming ? (
           <div className="cloud-card__menu" ref={menuRef}>
             <button
+              ref={triggerRef}
               type="button"
               className="cloud-icon-button cloud-card__menu-trigger"
               aria-label={`Actions for ${diagram.name}`}
@@ -119,11 +186,16 @@ export const DiagramCard = (props: DiagramItemProps) => {
             </button>
 
             {menuOpen ? (
-              <div className="cloud-card__menu-popover" role="menu">
+              <div
+                className="cloud-card__menu-popover"
+                role="menu"
+                onKeyDown={handleMenuKeyDown}
+              >
                 <button
                   type="button"
                   className="cloud-card__menu-item"
                   role="menuitem"
+                  disabled={busy}
                   onClick={() => {
                     setMenuOpen(false);
                     props.onOpen();
@@ -136,6 +208,7 @@ export const DiagramCard = (props: DiagramItemProps) => {
                   type="button"
                   className="cloud-card__menu-item"
                   role="menuitem"
+                  disabled={busy}
                   onClick={() => {
                     setMenuOpen(false);
                     props.onStartRename();
@@ -148,6 +221,7 @@ export const DiagramCard = (props: DiagramItemProps) => {
                   type="button"
                   className="cloud-card__menu-item is-danger"
                   role="menuitem"
+                  disabled={busy}
                   onClick={() => {
                     setMenuOpen(false);
                     props.onDelete();

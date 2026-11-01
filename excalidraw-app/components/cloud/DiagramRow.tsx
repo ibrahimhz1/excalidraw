@@ -30,7 +30,7 @@ export const DiagramRow = (props: DiagramItemProps) => {
       <button
         type="button"
         className="cloud-row__preview"
-        aria-label={`Open ${diagram.name}`}
+        aria-label={`Preview ${diagram.name}`}
         disabled={busy || isRenaming}
         onClick={props.onOpen}
       >
