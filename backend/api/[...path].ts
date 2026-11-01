@@ -1,12 +1,20 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handleRequest } from "../src/app";
+import { parseCookies } from "../src/lib/cookies";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const path = new URL(req.url ?? "/", "http://localhost").pathname;
+  const url = new URL(req.url ?? "/", "http://localhost");
+  const origin = Array.isArray(req.headers.origin)
+    ? req.headers.origin[0]
+    : req.headers.origin;
+
   const result = await handleRequest({
     method: req.method ?? "GET",
-    path,
+    path: url.pathname,
     body: req.body,
+    cookies: parseCookies(req.headers.cookie),
+    query: Object.fromEntries(url.searchParams),
+    origin,
   });
 
   for (const [key, value] of Object.entries(result.headers ?? {})) {

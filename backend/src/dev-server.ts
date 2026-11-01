@@ -1,5 +1,10 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { handleRequest } from "./app";
+import { parseCookies } from "./lib/cookies";
 
 const port = Number(process.env.PORT ?? 3000);
 const maxBodyBytes = 1_000_000;
@@ -33,14 +38,20 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
 }
 
 createServer(async (req, res) => {
-  const path = new URL(req.url ?? "/", `http://localhost:${port}`).pathname;
+  const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+  const origin = Array.isArray(req.headers.origin)
+    ? req.headers.origin[0]
+    : req.headers.origin;
 
   try {
     const body = await readJsonBody(req);
     const result = await handleRequest({
       method: req.method ?? "GET",
-      path,
+      path: url.pathname,
       body,
+      cookies: parseCookies(req.headers.cookie),
+      query: Object.fromEntries(url.searchParams),
+      origin,
     });
 
     for (const [key, value] of Object.entries(result.headers ?? {})) {

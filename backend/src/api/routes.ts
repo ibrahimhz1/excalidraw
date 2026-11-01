@@ -1,10 +1,16 @@
-import type { ApiResult } from "../app";
+import type { ApiResult, RequestContext } from "../app";
+import * as authController from "./auth.controller";
 import * as diagramController from "./diagram.controller";
 
 export interface Route {
   method: string;
   pattern: RegExp;
-  handler: (params: string[], body: unknown) => ApiResult | Promise<ApiResult>;
+  requiresAuth?: boolean;
+  handler: (
+    params: string[],
+    body: unknown,
+    ctx: RequestContext,
+  ) => ApiResult | Promise<ApiResult>;
 }
 
 export const routes: Route[] = [
@@ -15,28 +21,59 @@ export const routes: Route[] = [
   },
   {
     method: "GET",
+    pattern: /^\/api\/auth\/google$/,
+    handler: () => authController.startGoogleAuth(),
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/auth\/google\/callback$/,
+    handler: authController.googleCallback,
+  },
+  {
+    method: "GET",
+    pattern: /^\/api\/auth\/me$/,
+    requiresAuth: true,
+    handler: authController.me,
+  },
+  {
+    method: "POST",
+    pattern: /^\/api\/auth\/logout$/,
+    requiresAuth: true,
+    handler: authController.logout,
+  },
+  {
+    method: "GET",
     pattern: /^\/api\/diagrams$/,
-    handler: () => diagramController.listDiagrams(),
+    requiresAuth: true,
+    handler: (_params, _body, ctx) =>
+      diagramController.listDiagrams(ctx.user!.id),
   },
   {
     method: "POST",
     pattern: /^\/api\/diagrams$/,
-    handler: (_params, body) => diagramController.createDiagram(body),
+    requiresAuth: true,
+    handler: (_params, body, ctx) =>
+      diagramController.createDiagram(ctx.user!.id, body),
   },
   {
     method: "GET",
     pattern: /^\/api\/diagrams\/([^/]+)$/,
-    handler: (params) => diagramController.getDiagram(params[0]!),
+    requiresAuth: true,
+    handler: (params, _body, ctx) =>
+      diagramController.getDiagram(ctx.user!.id, params[0]!),
   },
   {
     method: "PUT",
     pattern: /^\/api\/diagrams\/([^/]+)$/,
-    handler: (params, body) =>
-      diagramController.updateDiagram(params[0]!, body),
+    requiresAuth: true,
+    handler: (params, body, ctx) =>
+      diagramController.updateDiagram(ctx.user!.id, params[0]!, body),
   },
   {
     method: "DELETE",
     pattern: /^\/api\/diagrams\/([^/]+)$/,
-    handler: (params) => diagramController.deleteDiagram(params[0]!),
+    requiresAuth: true,
+    handler: (params, _body, ctx) =>
+      diagramController.deleteDiagram(ctx.user!.id, params[0]!),
   },
 ];

@@ -49,27 +49,38 @@ function parseInput(body: unknown): DiagramInput {
   };
 }
 
-export async function listDiagrams() {
-  const diagrams = await diagramService.listDiagrams();
+export async function listDiagrams(ownerId: string) {
+  const diagrams = await diagramService.listDiagrams(ownerId);
   return { status: 200, body: diagrams };
 }
 
-export async function getDiagram(id: string) {
-  const diagram = await diagramService.getDiagram(parseId(id));
+export async function getDiagram(ownerId: string, id: string) {
+  const diagram = await diagramService.getDiagram(ownerId, parseId(id));
   return { status: 200, body: diagram };
 }
 
-export async function createDiagram(body: unknown) {
-  const diagram = await diagramService.createDiagram(parseInput(body));
+export async function createDiagram(ownerId: string, body: unknown) {
+  const diagram = await diagramService.createDiagram(
+    ownerId,
+    parseInput(body),
+  );
   return { status: 201, body: diagram };
 }
 
-export async function updateDiagram(id: string, body: unknown) {
-  const diagram = await diagramService.updateDiagram(parseId(id), parseInput(body));
+export async function updateDiagram(
+  ownerId: string,
+  id: string,
+  body: unknown,
+) {
+  const diagram = await diagramService.updateDiagram(
+    ownerId,
+    parseId(id),
+    parseInput(body),
+  );
   return { status: 200, body: diagram };
 }
 
-export async function deleteDiagram(id: string) {
-  await diagramService.deleteDiagram(parseId(id));
+export async function deleteDiagram(ownerId: string, id: string) {
+  await diagramService.deleteDiagram(ownerId, parseId(id));
   return { status: 204 };
 }
