@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "path";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
@@ -271,6 +272,31 @@ export default defineConfig(({ mode }) => {
       assetsInlineLimit: 0,
     },
     plugins: [
+      {
+        name: "serve-legal-pages",
+        enforce: "pre",
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            const pathname = req.url?.split("?")[0];
+            const file =
+              pathname === "/privacy" || pathname === "/privacy.html"
+                ? "privacy.html"
+                : pathname === "/terms" || pathname === "/terms.html"
+                ? "terms.html"
+                : null;
+
+            if (!file) {
+              next();
+              return;
+            }
+
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.end(
+              fs.readFileSync(path.resolve(__dirname, "../public", file)),
+            );
+          });
+        },
+      },
       Sitemap({
         hostname: "https://excalidraw.com",
         outDir: "build",

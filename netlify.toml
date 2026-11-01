@@ -6,6 +6,16 @@
   NODE_VERSION = "22"
   YARN_VERSION = "1.22.22"
 
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 301
+
+[[redirects]]
+  from = "/terms"
+  to = "/terms.html"
+  status = 301
+
 [[headers]]
   for = "/*"
 
