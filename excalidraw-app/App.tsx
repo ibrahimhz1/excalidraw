@@ -102,7 +102,8 @@ import Collab, {
 import { AppFooter } from "./components/AppFooter";
 import { AppMainMenu } from "./components/AppMainMenu";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
-import { CloudDialogs } from "./components/CloudDialogs";
+import { CloudLibrary } from "./components/cloud/CloudLibrary";
+import { SaveAsDialog } from "./components/cloud/SaveAsDialog";
 import {
   ApiError,
   createDiagram,
@@ -516,6 +517,7 @@ const ExcalidrawWrapper = () => {
 
   const [cloudUser, setCloudUser] = useState<AuthUser | null>(null);
   const [cloudDialogOpen, setCloudDialogOpen] = useState(false);
+  const [saveAsDialogOpen, setSaveAsDialogOpen] = useState(false);
   const [currentCloudDiagram, setCurrentCloudDiagram] =
     useState<StoredCloudDiagram | null>(() => readStoredCloudDiagram());
   const [autoOpenOnLogin, setAutoOpenOnLogin] = useState(false);
@@ -855,13 +857,13 @@ const ExcalidrawWrapper = () => {
     ],
   );
 
-  const handleCloudNew = useCallback(() => {
+  const handleCloudNew = useCallback((): boolean => {
     if (!excalidrawAPI) {
-      return;
+      return false;
     }
 
     if (!window.confirm("Start a new diagram? Unsaved changes will be lost.")) {
-      return;
+      return false;
     }
 
     clearAutosaveTimer();
@@ -873,6 +875,8 @@ const ExcalidrawWrapper = () => {
     updateCurrentCloudDiagram(null);
     autosaveReadyRef.current = true;
     showCloudToast("New diagram");
+
+    return true;
   }, [
     clearAutosaveTimer,
     excalidrawAPI,
@@ -1549,7 +1553,7 @@ const ExcalidrawWrapper = () => {
           onCloudSave={() => {
             saveCloudDiagram(false).catch(() => {});
           }}
-          onCloudSaveAs={() => setCloudDialogOpen(true)}
+          onCloudSaveAs={() => setSaveAsDialogOpen(true)}
           onCloudOpenDiagrams={() => setCloudDialogOpen(true)}
           onCloudNew={handleCloudNew}
         />
@@ -1817,19 +1821,27 @@ const ExcalidrawWrapper = () => {
           />
         )}
       </Excalidraw>
-      <CloudDialogs
+      <CloudLibrary
         open={cloudDialogOpen}
         user={cloudUser}
         currentDiagramId={currentCloudDiagram?.id ?? null}
-        defaultName={
-          excalidrawAPI?.getAppState().name ?? currentCloudDiagram?.name ?? ""
-        }
         onClose={() => setCloudDialogOpen(false)}
         onLogin={handleCloudLogin}
+        onNew={handleCloudNew}
         onOpen={openCloudDiagram}
         onDeleted={handleCloudDiagramDeleted}
         onRenamed={handleCloudDiagramRenamed}
-        onSaveAs={(name) => saveCloudDiagram(true, name)}
+      />
+      <SaveAsDialog
+        open={saveAsDialogOpen}
+        defaultName={
+          excalidrawAPI?.getAppState().name ?? currentCloudDiagram?.name ?? ""
+        }
+        onCancel={() => setSaveAsDialogOpen(false)}
+        onSave={async (name) => {
+          await saveCloudDiagram(true, name);
+          setSaveAsDialogOpen(false);
+        }}
       />
     </div>
   );
