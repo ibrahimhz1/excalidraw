@@ -411,6 +411,19 @@ function readStoredCloudDiagram(): StoredCloudDiagram | null {
   }
 }
 
+function uniqueDiagramName(base: string): string {
+  const trimmed = base.trim() || "Untitled";
+
+  if (!/^untitled\b/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  const suffix = Math.random().toString(36).slice(2, 6);
+
+  return `Untitled ${stamp}-${suffix}`;
+}
+
 function storeCloudDiagram(diagram: StoredCloudDiagram | null) {
   try {
     if (diagram) {
@@ -668,13 +681,17 @@ const ExcalidrawWrapper = () => {
 
       try {
         const stateName = excalidrawAPI.getAppState().name;
-        const name =
+        const baseName =
           (
             options.nameOverride ??
             current?.name ??
             stateName ??
             "Untitled"
           ).trim() || "Untitled";
+        const name =
+          !current && !options.nameOverride
+            ? uniqueDiagramName(baseName)
+            : baseName;
         const content = captureScene(excalidrawAPI);
         const asNew = options.asNew ?? false;
         let diagram: CloudDiagram;
