@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { ApiError } from "../../cloud/api";
-
 interface SaveAsDialogProps {
   open: boolean;
   defaultName: string;
@@ -10,19 +8,34 @@ interface SaveAsDialogProps {
   onSave: (name: string) => Promise<void>;
 }
 
+const focusableSelector = [
+  "button:not([disabled])",
+  "[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
 export const SaveAsDialog = (props: SaveAsDialogProps) => {
   const { open, defaultName, onCancel } = props;
   const [name, setName] = useState(defaultName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const defaultNameRef = useRef(defaultName);
+
+  useEffect(() => {
+    defaultNameRef.current = defaultName;
+  }, [defaultName]);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    setName(defaultName);
+    setName(defaultNameRef.current);
     setError(null);
     setBusy(false);
 
@@ -37,7 +50,57 @@ export const SaveAsDialog = (props: SaveAsDialogProps) => {
         );
       }
     };
-  }, [open, defaultName]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const node = dialogRef.current;
+    const ownerDocument = node?.ownerDocument;
+
+    if (!node || !ownerDocument) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !busy) {
+        event.stopPropagation();
+        onCancel();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const items = Array.from(
+        node.querySelectorAll<HTMLElement>(focusableSelector),
+      ).filter((element) => element.offsetParent !== null);
+
+      if (items.length === 0) {
+        return;
+      }
+
+      const first = items[0];
+      const last = items[items.length - 1];
+
+      if (event.shiftKey && ownerDocument.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && ownerDocument.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    ownerDocument.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      ownerDocument.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, busy, onCancel]);
 
   if (!open) {
     return null;
@@ -58,7 +121,7 @@ export const SaveAsDialog = (props: SaveAsDialogProps) => {
       await props.onSave(trimmed);
     } catch (saveError) {
       setError(
-        saveError instanceof ApiError || saveError instanceof Error
+        saveError instanceof Error
           ? saveError.message
           : "Could not save the diagram",
       );
@@ -77,16 +140,11 @@ export const SaveAsDialog = (props: SaveAsDialogProps) => {
       }}
     >
       <div
+        ref={dialogRef}
         className="cloud-modal cloud-modal--save-as"
         role="dialog"
         aria-modal="true"
         aria-labelledby="cloud-save-as-title"
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && !busy) {
-            event.stopPropagation();
-            onCancel();
-          }
-        }}
       >
         <header className="cloud-modal__header">
           <h2 id="cloud-save-as-title">Save as new diagram</h2>
@@ -111,9 +169,14 @@ export const SaveAsDialog = (props: SaveAsDialogProps) => {
                 onChange={(event) => setName(event.target.value)}
                 maxLength={200}
                 disabled={busy}
+                aria-invalid={Boolean(error)}
               />
             </label>
-            {error ? <p className="cloud-modal__error">{error}</p> : null}
+            {error ? (
+              <p className="cloud-modal__error" role="alert">
+                {error}
+              </p>
+            ) : null}
           </div>
 
           <div className="cloud-modal__actions">
