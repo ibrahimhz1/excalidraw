@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -87,7 +86,7 @@ export const ConfirmDialog = (props: ConfirmDialogProps) => {
     return null;
   }
 
-  return createPortal(
+  return (
     <div
       className="cloud-modal-backdrop"
       onMouseDown={(event) => {
@@ -130,7 +129,6 @@ export const ConfirmDialog = (props: ConfirmDialogProps) => {
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 };

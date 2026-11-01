@@ -27,15 +27,16 @@ export const DiagramRow = (props: DiagramItemProps) => {
         .join(" ")}
       data-diagram-id={diagram.id}
     >
-      <button
-        type="button"
+      <div
         className="cloud-row__preview"
-        aria-label={`Preview ${diagram.name}`}
-        disabled={busy || isRenaming}
-        onClick={props.onOpen}
+        onClick={() => {
+          if (!busy && !isRenaming) {
+            props.onOpen();
+          }
+        }}
       >
         <ScenePreview diagram={diagram} />
-      </button>
+      </div>
 
       <div className="cloud-row__copy">
         {isRenaming ? (

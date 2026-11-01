@@ -6,8 +6,11 @@ import React, {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import clsx from "clsx";
 
 import { CloseIcon, PlusIcon } from "@excalidraw/excalidraw/components/icons";
+
+import type { Theme } from "@excalidraw/element/types";
 
 import { deleteDiagram, listDiagrams, renameDiagram } from "../../cloud/api";
 import { filterDiagrams, sortDiagrams } from "../../cloud/library";
@@ -27,6 +30,7 @@ const viewStorageKey = "draw-diagrams.library-view";
 
 interface CloudLibraryProps {
   open: boolean;
+  theme: Theme;
   user: AuthUser | null;
   currentDiagramId: string | null;
   onClose: () => void;
@@ -73,9 +77,10 @@ const focusableSelector = [
 ].join(",");
 
 export const CloudLibrary = (props: CloudLibraryProps) => {
-  const { open, user, currentDiagramId } = props;
+  const { open, theme, user, currentDiagramId, onClose } = props;
   const dialogRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const [diagrams, setDiagrams] = useState<CloudDiagram[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">(
@@ -101,6 +106,10 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
       setError(errorMessage(loadError));
       setStatus("error");
     }
+  }, []);
+
+  useEffect(() => {
+    return () => clearScenePreviewCache();
   }, []);
 
   useEffect(() => {
@@ -148,11 +157,50 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
       return;
     }
 
+    openerRef.current = ownerDocument.activeElement as HTMLElement | null;
+
+    const frame = ownerDocument.defaultView?.requestAnimationFrame(() => {
+      const target =
+        searchInputRef.current ??
+        node.querySelector<HTMLElement>(focusableSelector);
+      target?.focus();
+    });
+
+    return () => {
+      if (frame !== undefined) {
+        ownerDocument.defaultView?.cancelAnimationFrame(frame);
+      }
+
+      const opener = openerRef.current;
+      openerRef.current = null;
+      opener?.focus?.();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const node = dialogRef.current;
+    const ownerDocument = node?.ownerDocument;
+
+    if (!node || !ownerDocument) {
+      return;
+    }
+
     const previousOverflow = ownerDocument.body.style.overflow;
     ownerDocument.body.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (deleteTarget) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
         return;
       }
 
@@ -190,7 +238,10 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
       const first = items[0];
       const last = items[items.length - 1];
 
-      if (event.shiftKey && ownerDocument.activeElement === first) {
+      if (!node.contains(ownerDocument.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && ownerDocument.activeElement === first) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && ownerDocument.activeElement === last) {
@@ -205,7 +256,7 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
       ownerDocument.removeEventListener("keydown", handleKeyDown);
       ownerDocument.body.style.overflow = previousOverflow;
     };
-  }, [open, deleteTarget]);
+  }, [open, deleteTarget, onClose]);
 
   const changeView = useCallback((nextView: LibraryView) => {
     setView(nextView);
@@ -284,219 +335,248 @@ export const CloudLibrary = (props: CloudLibraryProps) => {
 
   return createPortal(
     <div
-      className="cloud-library__backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !busy) {
-          props.onClose();
-        }
-      }}
+      className={clsx(
+        "excalidraw",
+        "cloud-portal-root",
+        theme === "dark" && "theme--dark",
+      )}
     >
       <div
-        ref={dialogRef}
-        className="cloud-library"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cloud-library-title"
-        onKeyDown={(event) => {
-          if (event.key === "Escape" && !deleteTarget) {
-            event.stopPropagation();
+        className="cloud-library__backdrop"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !busy) {
             props.onClose();
           }
         }}
       >
-        <header className="cloud-library__header">
-          <div>
-            <span className="cloud-library__eyebrow">Library</span>
-            <div className="cloud-library__title-row">
-              <h2 id="cloud-library-title">My Diagrams</h2>
-              {user ? (
-                <span className="cloud-library__count">{diagrams.length}</span>
-              ) : null}
+        <div
+          ref={dialogRef}
+          className="cloud-library"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cloud-library-title"
+        >
+          <header className="cloud-library__header">
+            <div>
+              <span className="cloud-library__eyebrow">Library</span>
+              <div className="cloud-library__title-row">
+                <h2 id="cloud-library-title">My Diagrams</h2>
+                {user ? (
+                  <span className="cloud-library__count">
+                    {diagrams.length}
+                  </span>
+                ) : null}
+              </div>
             </div>
-          </div>
 
-          <div className="cloud-library__actions">
-            {user ? (
+            <div className="cloud-library__actions">
+              {user ? (
+                <button
+                  type="button"
+                  className="cloud-button cloud-button--primary"
+                  disabled={busy}
+                  onClick={() => {
+                    if (props.onNew()) {
+                      props.onClose();
+                    }
+                  }}
+                >
+                  <span aria-hidden="true">{PlusIcon}</span>
+                  New diagram
+                </button>
+              ) : null}
               <button
                 type="button"
-                className="cloud-button cloud-button--primary"
+                className="cloud-icon-button cloud-library__close"
+                aria-label="Close library"
                 disabled={busy}
-                onClick={() => {
-                  if (props.onNew()) {
-                    props.onClose();
-                  }
-                }}
+                onClick={props.onClose}
               >
-                <span aria-hidden="true">{PlusIcon}</span>
-                New diagram
+                {CloseIcon}
               </button>
-            ) : null}
-            <button
-              type="button"
-              className="cloud-icon-button cloud-library__close"
-              aria-label="Close library"
-              disabled={busy}
-              onClick={props.onClose}
+            </div>
+          </header>
+
+          {user ? (
+            <LibraryToolbar
+              query={query}
+              onQueryChange={setQuery}
+              sort={sort}
+              onSortChange={setSort}
+              view={view}
+              onViewChange={changeView}
+              count={visibleDiagrams.length}
+              searchInputRef={searchInputRef}
+            />
+          ) : null}
+
+          <div className="cloud-library__body">
+            <span
+              className="cloud-library__status"
+              role="status"
+              aria-live="polite"
             >
-              {CloseIcon}
-            </button>
-          </div>
-        </header>
+              {status === "loading"
+                ? "Loading diagrams"
+                : `${visibleDiagrams.length} diagrams`}
+            </span>
 
-        {user ? (
-          <LibraryToolbar
-            query={query}
-            onQueryChange={setQuery}
-            sort={sort}
-            onSortChange={setSort}
-            view={view}
-            onViewChange={changeView}
-            count={visibleDiagrams.length}
-            searchInputRef={searchInputRef}
-          />
-        ) : null}
+            {error ? (
+              <div className="cloud-library__banner" role="alert">
+                <span>{error}</span>
+                <div className="cloud-library__banner-actions">
+                  {status === "error" ? (
+                    <button
+                      type="button"
+                      className="cloud-button cloud-button--small"
+                      onClick={() => void loadDiagrams()}
+                    >
+                      Retry
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="cloud-button cloud-button--small"
+                      onClick={() => setError(null)}
+                    >
+                      Dismiss
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
-        <div className="cloud-library__body" aria-live="polite">
-          {error ? (
-            <div className="cloud-library__banner" role="alert">
-              <span>{error}</span>
-              <div className="cloud-library__banner-actions">
-                {status === "error" ? (
+            {!user ? (
+              <div className="cloud-library__empty">
+                <span className="cloud-library__empty-icon" aria-hidden="true">
+                  {PlusIcon}
+                </span>
+                <h3>Sign in to save diagrams</h3>
+                <p>
+                  Connect Google Drive to keep your diagrams synced across
+                  devices.
+                </p>
+                <button
+                  type="button"
+                  className="cloud-button cloud-button--primary"
+                  onClick={props.onLogin}
+                >
+                  Sign in with Google
+                </button>
+              </div>
+            ) : status === "loading" ? (
+              <div
+                className={
+                  view === "grid"
+                    ? "cloud-library__grid cloud-library__grid--skeleton"
+                    : "cloud-library__list"
+                }
+                aria-label="Loading diagrams"
+              >
+                {Array.from({ length: view === "grid" ? 8 : 6 }).map(
+                  (_, index) =>
+                    view === "grid" ? (
+                      <span
+                        key={index}
+                        className="cloud-skeleton cloud-skeleton--card"
+                      />
+                    ) : (
+                      <span
+                        key={index}
+                        className="cloud-skeleton cloud-skeleton--row"
+                      />
+                    ),
+                )}
+              </div>
+            ) : visibleDiagrams.length === 0 ? (
+              <div className="cloud-library__empty">
+                <span className="cloud-library__empty-icon" aria-hidden="true">
+                  {PlusIcon}
+                </span>
+                <h3>{query ? "No matching diagrams" : "No diagrams yet"}</h3>
+                <p>
+                  {query
+                    ? `Nothing matches "${query}".`
+                    : "Create your first diagram to see it here."}
+                </p>
+                {query ? (
                   <button
                     type="button"
-                    className="cloud-button cloud-button--small"
-                    onClick={() => void loadDiagrams()}
+                    className="cloud-button"
+                    onClick={() => setQuery("")}
                   >
-                    Retry
+                    Clear search
                   </button>
                 ) : (
                   <button
                     type="button"
-                    className="cloud-button cloud-button--small"
-                    onClick={() => setError(null)}
+                    className="cloud-button cloud-button--primary"
+                    disabled={busy}
+                    onClick={() => {
+                      if (props.onNew()) {
+                        props.onClose();
+                      }
+                    }}
                   >
-                    Dismiss
+                    <span aria-hidden="true">{PlusIcon}</span>
+                    New diagram
                   </button>
                 )}
               </div>
-            </div>
-          ) : null}
-
-          {!user ? (
-            <div className="cloud-library__empty">
-              <span className="cloud-library__empty-icon" aria-hidden="true">
-                {PlusIcon}
-              </span>
-              <h3>Sign in to save diagrams</h3>
-              <p>
-                Connect Google Drive to keep your diagrams synced across
-                devices.
-              </p>
-              <button
-                type="button"
-                className="cloud-button cloud-button--primary"
-                onClick={props.onLogin}
-              >
-                Sign in with Google
-              </button>
-            </div>
-          ) : status === "loading" ? (
-            <div
-              className={
-                view === "grid"
-                  ? "cloud-library__grid cloud-library__grid--skeleton"
-                  : "cloud-library__list"
-              }
-              aria-label="Loading diagrams"
-            >
-              {Array.from({ length: view === "grid" ? 8 : 6 }).map((_, index) =>
-                view === "grid" ? (
-                  <span
-                    key={index}
-                    className="cloud-skeleton cloud-skeleton--card"
+            ) : view === "grid" ? (
+              <div className="cloud-library__grid">
+                {visibleDiagrams.map((diagram) => (
+                  <DiagramCard
+                    key={diagram.id}
+                    diagram={diagram}
+                    isCurrent={diagram.id === currentDiagramId}
+                    isRenaming={renamingId === diagram.id}
+                    busy={busy}
+                    onOpen={() => void handleOpen(diagram.id)}
+                    onStartRename={() => setRenamingId(diagram.id)}
+                    onCancelRename={() => setRenamingId(null)}
+                    onRename={(name) => void handleRename(diagram, name)}
+                    onDelete={() => setDeleteTarget(diagram)}
                   />
-                ) : (
-                  <span
-                    key={index}
-                    className="cloud-skeleton cloud-skeleton--row"
+                ))}
+              </div>
+            ) : (
+              <div className="cloud-library__list">
+                {visibleDiagrams.map((diagram) => (
+                  <DiagramRow
+                    key={diagram.id}
+                    diagram={diagram}
+                    isCurrent={diagram.id === currentDiagramId}
+                    isRenaming={renamingId === diagram.id}
+                    busy={busy}
+                    onOpen={() => void handleOpen(diagram.id)}
+                    onStartRename={() => setRenamingId(diagram.id)}
+                    onCancelRename={() => setRenamingId(null)}
+                    onRename={(name) => void handleRename(diagram, name)}
+                    onDelete={() => setDeleteTarget(diagram)}
                   />
-                ),
-              )}
-            </div>
-          ) : visibleDiagrams.length === 0 ? (
-            <div className="cloud-library__empty">
-              <span className="cloud-library__empty-icon" aria-hidden="true">
-                {PlusIcon}
-              </span>
-              <h3>{query ? "No matching diagrams" : "No diagrams yet"}</h3>
-              <p>
-                {query
-                  ? `Nothing matches "${query}".`
-                  : "Create your first diagram to see it here."}
-              </p>
-              {query ? (
-                <button
-                  type="button"
-                  className="cloud-button"
-                  onClick={() => setQuery("")}
-                >
-                  Clear search
-                </button>
-              ) : null}
-            </div>
-          ) : view === "grid" ? (
-            <div className="cloud-library__grid">
-              {visibleDiagrams.map((diagram) => (
-                <DiagramCard
-                  key={diagram.id}
-                  diagram={diagram}
-                  isCurrent={diagram.id === currentDiagramId}
-                  isRenaming={renamingId === diagram.id}
-                  busy={busy}
-                  onOpen={() => void handleOpen(diagram.id)}
-                  onStartRename={() => setRenamingId(diagram.id)}
-                  onCancelRename={() => setRenamingId(null)}
-                  onRename={(name) => void handleRename(diagram, name)}
-                  onDelete={() => setDeleteTarget(diagram)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="cloud-library__list">
-              {visibleDiagrams.map((diagram) => (
-                <DiagramRow
-                  key={diagram.id}
-                  diagram={diagram}
-                  isCurrent={diagram.id === currentDiagramId}
-                  isRenaming={renamingId === diagram.id}
-                  busy={busy}
-                  onOpen={() => void handleOpen(diagram.id)}
-                  onStartRename={() => setRenamingId(diagram.id)}
-                  onCancelRename={() => setRenamingId(null)}
-                  onRename={(name) => void handleRename(diagram, name)}
-                  onDelete={() => setDeleteTarget(diagram)}
-                />
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Delete diagram?"
-        message={
-          <>
-            <strong>{deleteTarget?.name}</strong> will be removed from your
-            account and its Google Drive file will be deleted. This cannot be
-            undone.
-          </>
-        }
-        confirmLabel="Delete"
-        busy={busy}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => void handleDelete()}
-      />
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          title="Delete diagram?"
+          message={
+            <>
+              <strong>{deleteTarget?.name}</strong> will be removed from your
+              account and its Google Drive file will be deleted. This cannot be
+              undone.
+            </>
+          }
+          confirmLabel="Delete"
+          busy={busy}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void handleDelete()}
+        />
+      </div>
     </div>,
     document.body,
   );

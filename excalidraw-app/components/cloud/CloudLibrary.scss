@@ -1,3 +1,11 @@
+.cloud-portal-root {
+  user-select: text;
+}
+
+.cloud-portal-root .cloud-button {
+  font-size: 0.8125rem;
+}
+
 .cloud-library__backdrop,
 .cloud-modal-backdrop {
   position: fixed;
@@ -246,6 +254,17 @@
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
+.cloud-library__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .cloud-library__banner {
   display: flex;
   align-items: center;
@@ -285,7 +304,6 @@
 .cloud-card {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   border: 1px solid
     color-mix(in srgb, var(--input-border-color) 70%, transparent);
   border-radius: 12px;
@@ -313,6 +331,7 @@
   position: relative;
   aspect-ratio: 16 / 10;
   overflow: hidden;
+  border-radius: 12px 12px 0 0;
   border-bottom: 1px solid
     color-mix(in srgb, var(--input-border-color) 55%, transparent);
   background: var(--color-surface-low);
@@ -326,15 +345,6 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-
-  &:disabled {
-    cursor: default;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
-  }
 }
 
 .cloud-card__badge,
@@ -343,7 +353,7 @@
   align-items: center;
   border-radius: 999px;
   background: var(--color-primary-light);
-  color: var(--color-primary-darker);
+  color: var(--color-on-surface);
   font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -427,6 +437,11 @@
   box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
 }
 
+.cloud-card__menu-popover.is-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
 .cloud-card__menu-item {
   display: flex;
   align-items: center;
@@ -453,6 +468,10 @@
 
   &.is-danger {
     color: var(--color-danger-darker);
+
+    .theme--dark & {
+      color: var(--color-danger);
+    }
   }
 }
 
@@ -487,17 +506,13 @@
 .cloud-row__preview {
   width: 88px;
   flex-shrink: 0;
+  aspect-ratio: 16 / 10;
   padding: 0;
   overflow: hidden;
   border: 0;
   border-radius: 6px;
   background: var(--color-surface-low);
   cursor: pointer;
-
-  &:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
 }
 
 .cloud-row__copy {
@@ -719,6 +734,10 @@
   background: var(--color-primary);
   color: #fff;
 
+  .theme--dark & {
+    color: #121212;
+  }
+
   &:hover:not(:disabled) {
     background: var(--color-primary-darker);
     border-color: var(--color-primary-darker);
@@ -728,7 +747,7 @@
 .cloud-button--danger {
   border-color: var(--color-danger-darker);
   background: var(--color-danger);
-  color: #fff;
+  color: #121212;
 
   &:hover:not(:disabled) {
     background: var(--color-danger-darker);

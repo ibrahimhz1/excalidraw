@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import clsx from "clsx";
+
+import type { Theme } from "@excalidraw/element/types";
 
 interface SaveAsDialogProps {
   open: boolean;
+  theme: Theme;
   defaultName: string;
   onCancel: () => void;
   onSave: (name: string) => Promise<void>;
@@ -18,7 +22,7 @@ const focusableSelector = [
 ].join(",");
 
 export const SaveAsDialog = (props: SaveAsDialogProps) => {
-  const { open, defaultName, onCancel } = props;
+  const { open, theme, defaultName, onCancel } = props;
   const [name, setName] = useState(defaultName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,71 +137,79 @@ export const SaveAsDialog = (props: SaveAsDialogProps) => {
 
   return createPortal(
     <div
-      className="cloud-modal-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !busy) {
-          onCancel();
-        }
-      }}
+      className={clsx(
+        "excalidraw",
+        "cloud-portal-root",
+        theme === "dark" && "theme--dark",
+      )}
     >
       <div
-        ref={dialogRef}
-        className="cloud-modal cloud-modal--save-as"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cloud-save-as-title"
+        className="cloud-modal-backdrop"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !busy) {
+            onCancel();
+          }
+        }}
       >
-        <header className="cloud-modal__header">
-          <h2 id="cloud-save-as-title">Save as new diagram</h2>
-          <button
-            type="button"
-            className="cloud-icon-button"
-            aria-label="Close"
-            disabled={busy}
-            onClick={onCancel}
-          >
-            ×
-          </button>
-        </header>
-
-        <form onSubmit={handleSubmit}>
-          <div className="cloud-modal__body">
-            <label className="cloud-field">
-              <span>Diagram name</span>
-              <input
-                ref={inputRef}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                maxLength={200}
-                disabled={busy}
-                aria-invalid={Boolean(error)}
-              />
-            </label>
-            {error ? (
-              <p className="cloud-modal__error" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="cloud-modal__actions">
+        <div
+          ref={dialogRef}
+          className="cloud-modal cloud-modal--save-as"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cloud-save-as-title"
+        >
+          <header className="cloud-modal__header">
+            <h2 id="cloud-save-as-title">Save as new diagram</h2>
             <button
               type="button"
-              className="cloud-button"
+              className="cloud-icon-button"
+              aria-label="Close"
               disabled={busy}
               onClick={onCancel}
             >
-              Cancel
+              ×
             </button>
-            <button
-              type="submit"
-              className="cloud-button cloud-button--primary"
-              disabled={busy || !name.trim()}
-            >
-              {busy ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
+          </header>
+
+          <form onSubmit={handleSubmit}>
+            <div className="cloud-modal__body">
+              <label className="cloud-field">
+                <span>Diagram name</span>
+                <input
+                  ref={inputRef}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  maxLength={200}
+                  disabled={busy}
+                  aria-invalid={Boolean(error)}
+                />
+              </label>
+              {error ? (
+                <p className="cloud-modal__error" role="alert">
+                  {error}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="cloud-modal__actions">
+              <button
+                type="button"
+                className="cloud-button"
+                disabled={busy}
+                onClick={onCancel}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="cloud-button cloud-button--primary"
+                disabled={busy || !name.trim()}
+              >
+                {busy ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>,
     document.body,

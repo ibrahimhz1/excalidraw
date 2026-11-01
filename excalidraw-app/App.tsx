@@ -1823,6 +1823,7 @@ const ExcalidrawWrapper = () => {
       </Excalidraw>
       <CloudLibrary
         open={cloudDialogOpen}
+        theme={editorTheme}
         user={cloudUser}
         currentDiagramId={currentCloudDiagram?.id ?? null}
         onClose={() => setCloudDialogOpen(false)}
@@ -1834,6 +1835,7 @@ const ExcalidrawWrapper = () => {
       />
       <SaveAsDialog
         open={saveAsDialogOpen}
+        theme={editorTheme}
         defaultName={
           excalidrawAPI?.getAppState().name ?? currentCloudDiagram?.name ?? ""
         }

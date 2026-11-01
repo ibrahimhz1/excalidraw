@@ -29,6 +29,7 @@ export interface DiagramItemProps {
 export const DiagramCard = (props: DiagramItemProps) => {
   const { diagram, isCurrent, isRenaming, busy } = props;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuDirection, setMenuDirection] = useState<"up" | "down">("down");
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -76,6 +77,7 @@ export const DiagramCard = (props: DiagramItemProps) => {
         break;
       case "Escape":
         event.preventDefault();
+        event.stopPropagation();
         setMenuOpen(false);
         triggerRef.current?.focus();
         break;
@@ -124,6 +126,48 @@ export const DiagramCard = (props: DiagramItemProps) => {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const view = triggerRef.current?.ownerDocument.defaultView;
+
+    if (!view) {
+      return;
+    }
+
+    const handleClose = () => setMenuOpen(false);
+
+    view.addEventListener("scroll", handleClose, true);
+    view.addEventListener("resize", handleClose);
+
+    return () => {
+      view.removeEventListener("scroll", handleClose, true);
+      view.removeEventListener("resize", handleClose);
+    };
+  }, [menuOpen]);
+
+  const toggleMenu = () => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+
+    const trigger = triggerRef.current;
+    const view = trigger?.ownerDocument.defaultView;
+    const rect = trigger?.getBoundingClientRect();
+
+    if (view && rect) {
+      const spaceBelow = view.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      setMenuDirection(spaceBelow < 200 && spaceAbove > 200 ? "up" : "down");
+    }
+
+    setMenuOpen(true);
+  };
+
   return (
     <article
       className={[
@@ -136,15 +180,16 @@ export const DiagramCard = (props: DiagramItemProps) => {
       data-diagram-id={diagram.id}
     >
       <div className="cloud-card__preview-wrap">
-        <button
-          type="button"
+        <div
           className="cloud-card__open"
-          aria-label={`Preview ${diagram.name}`}
-          disabled={busy || isRenaming}
-          onClick={props.onOpen}
+          onClick={() => {
+            if (!busy && !isRenaming) {
+              props.onOpen();
+            }
+          }}
         >
           <ScenePreview diagram={diagram} />
-        </button>
+        </div>
         {isCurrent ? <span className="cloud-card__badge">Current</span> : null}
       </div>
 
@@ -180,14 +225,18 @@ export const DiagramCard = (props: DiagramItemProps) => {
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               disabled={busy}
-              onClick={() => setMenuOpen((current) => !current)}
+              onClick={toggleMenu}
             >
               {DotsIcon}
             </button>
 
             {menuOpen ? (
               <div
-                className="cloud-card__menu-popover"
+                className={
+                  menuDirection === "up"
+                    ? "cloud-card__menu-popover is-up"
+                    : "cloud-card__menu-popover"
+                }
                 role="menu"
                 onKeyDown={handleMenuKeyDown}
               >
