@@ -39,15 +39,16 @@ export const SaveAsDialog = (props: SaveAsDialogProps) => {
     setError(null);
     setBusy(false);
 
-    const frame = inputRef.current?.ownerDocument.defaultView?.requestAnimationFrame(
-      () => inputRef.current?.select(),
+    const input = inputRef.current;
+    const ownerDocument = input?.ownerDocument;
+
+    const frame = ownerDocument?.defaultView?.requestAnimationFrame(() =>
+      input?.select(),
     );
 
     return () => {
       if (frame !== undefined) {
-        inputRef.current?.ownerDocument.defaultView?.cancelAnimationFrame(
-          frame,
-        );
+        ownerDocument?.defaultView?.cancelAnimationFrame(frame);
       }
     };
   }, [open]);

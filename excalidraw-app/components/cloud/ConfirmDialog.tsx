@@ -21,11 +21,12 @@ const focusableSelector = [
 ].join(",");
 
 export const ConfirmDialog = (props: ConfirmDialogProps) => {
+  const { open, busy, onCancel } = props;
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!props.open) {
+    if (!open) {
       return;
     }
 
@@ -41,9 +42,9 @@ export const ConfirmDialog = (props: ConfirmDialogProps) => {
     );
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !props.busy) {
+      if (event.key === "Escape" && !busy) {
         event.stopPropagation();
-        props.onCancel();
+        onCancel();
         return;
       }
 
@@ -80,7 +81,7 @@ export const ConfirmDialog = (props: ConfirmDialogProps) => {
         ownerDocument.defaultView?.cancelAnimationFrame(frame);
       }
     };
-  }, [props.open, props.busy, props.onCancel]);
+  }, [open, busy, onCancel]);
 
   if (!props.open) {
     return null;

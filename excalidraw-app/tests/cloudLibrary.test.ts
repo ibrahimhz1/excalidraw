@@ -84,7 +84,9 @@ describe("formatRelativeTime", () => {
   const now = Date.parse("2026-01-10T12:00:00.000Z");
 
   it("formats recent times", () => {
-    expect(formatRelativeTime("2026-01-10T11:59:30.000Z", now)).toBe("just now");
+    expect(formatRelativeTime("2026-01-10T11:59:30.000Z", now)).toBe(
+      "just now",
+    );
     expect(formatRelativeTime("2026-01-10T11:59:00.000Z", now)).toBe(
       "1 minute ago",
     );

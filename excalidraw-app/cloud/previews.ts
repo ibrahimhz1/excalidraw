@@ -4,9 +4,9 @@ import {
   restoreElements,
 } from "@excalidraw/excalidraw";
 
-import { getDiagram } from "./api";
-
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
+
+import { getDiagram } from "./api";
 
 import type { CloudDiagram, CloudScene } from "./api";
 
