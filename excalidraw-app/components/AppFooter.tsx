@@ -19,6 +19,22 @@ export const AppFooter = React.memo(
         >
           {isVisualDebuggerEnabled() && <DebugFooter onChange={onChange} />}
           {!isExcalidrawPlusSignedUser && <EncryptedIcon />}
+          <a
+            href="/privacy.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ opacity: 0.7, fontSize: ".75rem" }}
+          >
+            Privacy
+          </a>
+          <a
+            href="/terms.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ opacity: 0.7, fontSize: ".75rem" }}
+          >
+            Terms
+          </a>
         </div>
       </Footer>
     );
