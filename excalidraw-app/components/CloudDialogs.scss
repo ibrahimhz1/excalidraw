@@ -1,0 +1,146 @@
+.cloud-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 45%);
+}
+
+.cloud-dialog {
+  width: min(640px, 100%);
+  max-height: min(80vh, 720px);
+  overflow-y: auto;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--island-bg-color);
+  color: var(--text-primary-color);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 30%);
+}
+
+.cloud-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+
+  h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+}
+
+.cloud-dialog__icon-button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cloud-dialog__save {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--input-border-color, #ced4da);
+    border-radius: 6px;
+    background: var(--input-bg-color, transparent);
+    color: inherit;
+  }
+}
+
+.cloud-dialog__primary {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.cloud-dialog__empty {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 24px 0;
+  opacity: 0.8;
+}
+
+.cloud-dialog__error {
+  margin: 0 0 12px;
+  color: var(--color-danger, #c92a2a);
+}
+
+.cloud-dialog__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cloud-dialog__item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--input-border-color, #ced4da);
+  border-radius: 8px;
+
+  &.is-current {
+    border-color: var(--color-primary);
+  }
+
+  button {
+    padding: 6px 10px;
+    border: 1px solid var(--input-border-color, #ced4da);
+    border-radius: 6px;
+    background: var(--island-bg-color);
+    color: inherit;
+    cursor: pointer;
+  }
+}
+
+.cloud-dialog__item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    font-size: 0.8rem;
+    opacity: 0.7;
+  }
+}
+
+.cloud-dialog__item-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.cloud-dialog__danger {
+  color: var(--color-danger, #c92a2a);
+}

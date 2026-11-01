@@ -2,6 +2,10 @@ import {
   loginIcon,
   ExcalLogo,
   eyeIcon,
+  save,
+  saveAs,
+  LoadIcon,
+  PlusIcon,
 } from "@excalidraw/excalidraw/components/icons";
 import { useI18n } from "@excalidraw/excalidraw/i18n";
 import { MainMenu } from "@excalidraw/excalidraw/index";
@@ -16,12 +20,21 @@ import { isExcalidrawPlusSignedUser } from "../app_constants";
 
 import { saveDebugState } from "./DebugCanvas";
 
+import type { AuthUser } from "../cloud/api";
+
 export const AppMainMenu: React.FC<{
   onCollabDialogOpen: () => any;
   isCollaborating: boolean;
   isCollabEnabled: boolean;
   theme: Theme | "system";
   refresh: () => void;
+  cloudUser: AuthUser | null;
+  onCloudLogin: () => void;
+  onCloudLogout: () => void;
+  onCloudSave: () => void;
+  onCloudSaveAs: () => void;
+  onCloudOpenDiagrams: () => void;
+  onCloudNew: () => void;
 }> = React.memo((props) => {
   const { t } = useI18n();
   return (
@@ -30,6 +43,34 @@ export const AppMainMenu: React.FC<{
       <MainMenu.DefaultItems.SaveToActiveFile />
       <MainMenu.DefaultItems.Export />
       <MainMenu.DefaultItems.SaveAsImage />
+      {props.cloudUser ? (
+        <>
+          <MainMenu.Separator />
+          <MainMenu.Item icon={save} onSelect={props.onCloudSave}>
+            Save to Drive
+          </MainMenu.Item>
+          <MainMenu.Item icon={saveAs} onSelect={props.onCloudSaveAs}>
+            Save As
+          </MainMenu.Item>
+          <MainMenu.Item icon={LoadIcon} onSelect={props.onCloudOpenDiagrams}>
+            My Diagrams
+          </MainMenu.Item>
+          <MainMenu.Item icon={PlusIcon} onSelect={props.onCloudNew}>
+            New Diagram
+          </MainMenu.Item>
+          <MainMenu.Item icon={loginIcon} onSelect={props.onCloudLogout}>
+            Sign out ({props.cloudUser.email})
+          </MainMenu.Item>
+          <MainMenu.Separator />
+        </>
+      ) : (
+        <>
+          <MainMenu.Item icon={loginIcon} onSelect={props.onCloudLogin}>
+            Sign in with Google
+          </MainMenu.Item>
+          <MainMenu.Separator />
+        </>
+      )}
       {props.isCollabEnabled && (
         <MainMenu.DefaultItems.LiveCollaborationTrigger
           isCollaborating={props.isCollaborating}

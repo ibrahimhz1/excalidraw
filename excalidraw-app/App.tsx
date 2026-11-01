@@ -102,6 +102,18 @@ import Collab, {
 import { AppFooter } from "./components/AppFooter";
 import { AppMainMenu } from "./components/AppMainMenu";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
+import { CloudDialogs } from "./components/CloudDialogs";
+import {
+  ApiError,
+  createDiagram,
+  getCurrentUser,
+  getDiagram as getCloudDiagram,
+  loginUrl,
+  logout as logoutCloud,
+  updateDiagram,
+  type AuthUser,
+} from "./cloud/api";
+import { applyScene, captureScene } from "./cloud/scene";
 import {
   ExportToExcalidrawPlus,
   exportToExcalidrawPlus,
@@ -451,6 +463,200 @@ const ExcalidrawWrapper = () => {
   });
 
   const [, forceRefresh] = useState(false);
+
+  const [cloudUser, setCloudUser] = useState<AuthUser | null>(null);
+  const [cloudDialogOpen, setCloudDialogOpen] = useState(false);
+  const [currentCloudDiagram, setCurrentCloudDiagram] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const showCloudToast = useCallback(
+    (message: string) => {
+      excalidrawAPI?.setToast({ message, duration: 4000 });
+    },
+    [excalidrawAPI],
+  );
+
+  const handleCloudError = useCallback(
+    async (error: unknown) => {
+      if (error instanceof ApiError && error.status === 401) {
+        try {
+          const user = await getCurrentUser();
+          setCloudUser(user);
+          showCloudToast(error.message);
+        } catch {
+          setCloudUser(null);
+          showCloudToast("Session expired. Sign in again.");
+        }
+        return;
+      }
+
+      showCloudToast(
+        error instanceof Error ? error.message : "Cloud request failed",
+      );
+    },
+    [showCloudToast],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getCurrentUser()
+      .then((user) => {
+        if (!cancelled) {
+          setCloudUser(user);
+        }
+      })
+      .catch((error) => {
+        if (!(error instanceof ApiError && error.status === 401)) {
+          console.error(error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const auth = params.get("auth");
+
+    if (!auth) {
+      return;
+    }
+
+    if (auth === "error") {
+      showCloudToast("Google sign-in failed. Try again.");
+    } else if (auth === "success") {
+      showCloudToast("Signed in with Google");
+    }
+
+    params.delete("auth");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${
+        window.location.hash
+      }`,
+    );
+  }, [showCloudToast]);
+
+  const handleCloudLogin = useCallback(() => {
+    window.location.assign(loginUrl);
+  }, []);
+
+  const handleCloudLogout = useCallback(async () => {
+    try {
+      await logoutCloud();
+      showCloudToast("Signed out");
+    } catch (error) {
+      await handleCloudError(error);
+    }
+
+    setCloudUser(null);
+    setCurrentCloudDiagram(null);
+    setCloudDialogOpen(false);
+  }, [handleCloudError, showCloudToast]);
+
+  const saveCloudDiagram = useCallback(
+    async (asNew = false, nameOverride?: string) => {
+      if (!cloudUser) {
+        window.location.assign(loginUrl);
+        return;
+      }
+
+      if (!excalidrawAPI) {
+        return;
+      }
+
+      try {
+        const stateName = excalidrawAPI.getAppState().name;
+        const name =
+          (
+            nameOverride ??
+            stateName ??
+            currentCloudDiagram?.name ??
+            "Untitled"
+          ).trim() || "Untitled";
+        const content = captureScene(excalidrawAPI);
+        const wasNew = asNew || !currentCloudDiagram;
+        const diagram =
+          currentCloudDiagram && !asNew
+            ? await updateDiagram(currentCloudDiagram.id, { name, content })
+            : await createDiagram({ name, content });
+
+        setCurrentCloudDiagram({ id: diagram.id, name: diagram.name });
+        excalidrawAPI.updateScene({ appState: { name: diagram.name } });
+        showCloudToast(wasNew ? "Saved as new diagram" : "Saved to Drive");
+      } catch (error) {
+        await handleCloudError(error);
+        throw error;
+      }
+    },
+    [
+      cloudUser,
+      currentCloudDiagram,
+      excalidrawAPI,
+      handleCloudError,
+      showCloudToast,
+    ],
+  );
+
+  const openCloudDiagram = useCallback(
+    async (id: string) => {
+      if (!cloudUser) {
+        window.location.assign(loginUrl);
+        return;
+      }
+
+      if (!excalidrawAPI) {
+        return;
+      }
+
+      try {
+        const { diagram, content } = await getCloudDiagram(id);
+        applyScene(excalidrawAPI, content);
+        excalidrawAPI.updateScene({ appState: { name: diagram.name } });
+        setCurrentCloudDiagram({ id: diagram.id, name: diagram.name });
+        showCloudToast(`Opened "${diagram.name}"`);
+      } catch (error) {
+        await handleCloudError(error);
+        throw error;
+      }
+    },
+    [cloudUser, excalidrawAPI, handleCloudError, showCloudToast],
+  );
+
+  const handleCloudDiagramDeleted = useCallback(
+    (id: string) => {
+      setCurrentCloudDiagram((current) =>
+        current?.id === id ? null : current,
+      );
+      showCloudToast("Diagram deleted");
+    },
+    [showCloudToast],
+  );
+
+  const handleCloudNew = useCallback(() => {
+    if (!excalidrawAPI) {
+      return;
+    }
+
+    if (!window.confirm("Start a new diagram? Unsaved changes will be lost.")) {
+      return;
+    }
+
+    excalidrawAPI.updateScene({
+      elements: [],
+      appState: { name: null },
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+    setCurrentCloudDiagram(null);
+    showCloudToast("New diagram");
+  }, [excalidrawAPI, showCloudToast]);
 
   useEffect(() => {
     if (isDevEnv()) {
@@ -1041,6 +1247,15 @@ const ExcalidrawWrapper = () => {
           isCollabEnabled={isCollabAvailable}
           theme={appTheme}
           refresh={() => forceRefresh((prev) => !prev)}
+          cloudUser={cloudUser}
+          onCloudLogin={handleCloudLogin}
+          onCloudLogout={handleCloudLogout}
+          onCloudSave={() => {
+            saveCloudDiagram(false).catch(() => {});
+          }}
+          onCloudSaveAs={() => setCloudDialogOpen(true)}
+          onCloudOpenDiagrams={() => setCloudDialogOpen(true)}
+          onCloudNew={handleCloudNew}
         />
         <AppWelcomeScreen
           onCollabDialogOpen={onCollabDialogOpen}
@@ -1306,6 +1521,19 @@ const ExcalidrawWrapper = () => {
           />
         )}
       </Excalidraw>
+      <CloudDialogs
+        open={cloudDialogOpen}
+        user={cloudUser}
+        currentDiagramId={currentCloudDiagram?.id ?? null}
+        defaultName={
+          excalidrawAPI?.getAppState().name ?? currentCloudDiagram?.name ?? ""
+        }
+        onClose={() => setCloudDialogOpen(false)}
+        onLogin={handleCloudLogin}
+        onOpen={openCloudDiagram}
+        onDeleted={handleCloudDiagramDeleted}
+        onSaveAs={(name) => saveCloudDiagram(true, name)}
+      />
     </div>
   );
 };

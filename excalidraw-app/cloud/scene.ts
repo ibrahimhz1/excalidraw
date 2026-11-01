@@ -29,7 +29,9 @@ export function applyScene(
   const files = scene.files ? Object.values(scene.files) : [];
 
   if (files.length > 0) {
-    excalidrawAPI.addFiles(files as Parameters<typeof excalidrawAPI.addFiles>[0]);
+    excalidrawAPI.addFiles(
+      files as Parameters<typeof excalidrawAPI.addFiles>[0],
+    );
   }
 
   excalidrawAPI.updateScene({

@@ -38,10 +38,7 @@ export interface CloudDiagramInput {
 }
 
 export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
+  constructor(readonly status: number, message: string) {
     super(message);
     this.name = "ApiError";
   }
@@ -107,9 +104,7 @@ export function getDiagram(id: string): Promise<CloudDiagramDetail> {
   return request<CloudDiagramDetail>(`/api/diagrams/${id}`);
 }
 
-export function createDiagram(
-  input: CloudDiagramInput,
-): Promise<CloudDiagram> {
+export function createDiagram(input: CloudDiagramInput): Promise<CloudDiagram> {
   return request<CloudDiagram>("/api/diagrams", {
     method: "POST",
     body: JSON.stringify(input),
